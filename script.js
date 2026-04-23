@@ -1,6 +1,53 @@
-// Function to create a unique ID for each task
-let taskCounter = 0;
+// Initialize board from LocalStorage or empty arrays
+let tasks = JSON.parse(localStorage.getItem('kanban-tasks')) || [];
 
+function saveToLocalStorage() {
+    localStorage.setItem('kanban-tasks', JSON.stringify(tasks));
+}
+
+function renderTasks() {
+    // Clear current lists
+    document.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
+
+    tasks.forEach(task => {
+        const taskElement = document.createElement('div');
+        taskElement.className = 'task';
+        taskElement.id = task.id;
+        taskElement.draggable = true;
+        taskElement.ondragstart = drag;
+        
+        taskElement.innerHTML = `
+            <span>${task.content}</span>
+            <i class="fas fa-trash delete-btn" onclick="deleteTask('${task.id}')"></i>
+        `;
+
+        document.getElementById(`${task.status}-list`).appendChild(taskElement);
+    });
+}
+
+function addTask() {
+    const input = document.getElementById('taskInput');
+    if (!input.value.trim()) return;
+
+    const newTask = {
+        id: 't-' + Date.now(),
+        content: input.value,
+        status: 'todo'
+    };
+
+    tasks.push(newTask);
+    saveToLocalStorage();
+    renderTasks();
+    input.value = '';
+}
+
+function deleteTask(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    saveToLocalStorage();
+    renderTasks();
+}
+
+// Drag & Drop Handlers
 function allowDrop(ev) {
     ev.preventDefault();
 }
@@ -11,39 +58,25 @@ function drag(ev) {
 
 function drop(ev) {
     ev.preventDefault();
-    const data = ev.dataTransfer.getData("text");
-    const draggedElement = document.getElementById(data);
+    const taskId = ev.dataTransfer.getData("text");
     
-    // Ensure we drop into the task-list div even if user drops on a task
-    let target = ev.target;
-    while (target && !target.classList.contains('column')) {
-        target = target.parentElement;
+    // Find the closest list ID (todo, inprogress, or done)
+    let targetList = ev.target;
+    while (targetList && !targetList.id.includes('-list')) {
+        targetList = targetList.parentElement;
     }
-    
-    if (target) {
-        const list = target.querySelector('.task-list');
-        list.appendChild(draggedElement);
+
+    if (targetList) {
+        const newStatus = targetList.id.replace('-list', '');
+        const taskIndex = tasks.findIndex(t => t.id === taskId);
+        
+        if (taskIndex > -1) {
+            tasks[taskIndex].status = newStatus;
+            saveToLocalStorage();
+            renderTasks();
+        }
     }
 }
 
-function addTask() {
-    const input = document.getElementById('taskInput');
-    const taskText = input.value.trim();
-    
-    if (taskText === "") {
-        alert("Please enter a task!");
-        return;
-    }
-
-    const taskId = "task-" + taskCounter++;
-    const taskDiv = document.createElement('div');
-    
-    taskDiv.className = 'task';
-    taskDiv.id = taskId;
-    taskDiv.draggable = true;
-    taskDiv.ondragstart = drag;
-    taskDiv.innerText = taskText;
-
-    document.getElementById('todo-tasks').appendChild(taskDiv);
-    input.value = ""; // Clear input
-}
+// Initial Load
+renderTasks();
